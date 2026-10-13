@@ -414,11 +414,7 @@
     },
     {
      "kind": "wait",
-     "ms": 10
-    },
-    {
-     "kind": "wait",
-     "ms": 1
+     "ms": 13
     },
     {
      "kind": "wave",

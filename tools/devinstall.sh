@@ -6,14 +6,15 @@
 #                      before the vibrator HAL starts
 # usage: tools/devinstall.sh [project]          install and reboot
 #        tools/devinstall.sh --remove           delete everything above and reboot (back to stock)
-# Needs: KWT = kernel worktree with the TEST ONLY primitives patch (default ~/lineage/haptics-prim-wt),
+# Needs: KWT = kernel worktree with the primitives series (default ~/lineage/haptics-prims-wt); the driver is
+#        copied, its aw_ff_effects table replaced by the project's, and built out of tree (KWT stays clean),
 #        KBUILD = script whose K=/O=/MK lines describe the kernel build (default ~/lineage/build_kernel_haptic24.sh),
 #        a userdebug build with root, adb remount working, and the device serial below.
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")/.." && pwd)
 ADB=${HAPKIT_ADB:-/mnt/c/Users/matt/adb-fastboot/platform-tools/adb.exe}
 SERIAL=${HAPKIT_SERIAL:-214d028e}
-KWT=${KWT:-$HOME/lineage/haptics-prim-wt}
+KWT=${KWT:-$HOME/lineage/haptics-prims-wt}
 KBUILD=${KBUILD:-$HOME/lineage/build_kernel_haptic24.sh}
 A=("$ADB" -s "$SERIAL")
 sh() { "${A[@]}" shell "$@" | tr -d '\r'; }
@@ -30,6 +31,8 @@ fi
 
 PROJECT=${1:-$HERE/projects/fp6.hapkit.json}
 OUT=$(mktemp -d); trap 'rm -rf "$OUT"' EXIT
+cp -r "$KWT/drivers/misc/haptic_hv" "$OUT/haptic_hv"
+rm -f "$OUT"/haptic_hv/*.o "$OUT"/haptic_hv/*.ko "$OUT"/haptic_hv/.*.cmd
 PYTHONPATH="$HERE" python3 - "$PROJECT" "$OUT" <<'EOF'
 import sys
 from hapkit.core import exports, project as proj
@@ -37,14 +40,18 @@ p = proj.load(sys.argv[1])
 blob, rep = exports.export_ram_bin(p, upstream=True)
 open(f"{sys.argv[2]}/haptic_ram.bin", "wb").write(blob)
 table = exports.export_kernel_table(p, upstream=True)
-open(f"{sys.argv[2]}/haptic_hv_effects.h", "w", newline="\r\n").write(table)
+rows = table[table.index("static const struct aw_ff_effect aw_ff_effects[]"):]
+cp = f"{sys.argv[2]}/haptic_hv/haptic_hv.c"
+src = open(cp, newline="").read().replace("\r\n", "\n")
+a = src.index("static const struct aw_ff_effect aw_ff_effects[]")
+b = src.index("\n};\n", a) + 4
+open(cp, "w", newline="\r\n").write(src[:a] + rows + src[b:])
 print(f"{p['name']}: haptic_ram.bin {rep['sha256'][:12]} ({rep['file_bytes']} B)")
 EOF
 
-cp "$OUT/haptic_hv_effects.h" "$KWT/drivers/misc/haptic_hv/haptic_hv_effects.h"
 eval "$(sed -n '/^K=/,/LIBCLANG_PATH/p' "$KBUILD")"
-"${MK[@]}" M="$KWT/drivers/misc/haptic_hv" modules 2>&1 | grep -E "warning|error" && exit 1 || true
-"$CL/llvm-strip" --strip-debug -o "$OUT/haptic.ko" "$KWT/drivers/misc/haptic_hv/haptic.ko"
+"${MK[@]}" M="$OUT/haptic_hv" modules 2>&1 | grep -E "warning|error" && exit 1 || true
+"$CL/llvm-strip" --strip-debug -o "$OUT/haptic.ko" "$OUT/haptic_hv/haptic.ko"
 
 cat > "$OUT/hapkit.rc" <<'EOF'
 # hapkit test setup (adb remount overlay; userdebug only). Swaps haptic.ko for /vendor/etc/hapkit/haptic.ko

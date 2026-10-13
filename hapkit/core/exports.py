@@ -82,12 +82,51 @@ def _c_name(e: dict) -> str:
         "name", ids.name_of(e["kind"], e["aidl"])).upper()
 
 
+def _kernel_wait(units: int, device: dict, ms: float) -> str:
+    """A wait slot as haptic_hv writes it: AW_SEQ_WAIT_MS(ms) when the driver's macro gives the same unit count
+    (the designed ms if possible, else the closest), else the raw register value."""
+    fs, unit = int(device.get("fs", 24000)), int(device.get("wait_unit", 64))
+    fits = [m for m in range(1, 1000) if (m * (fs // 1000) + unit // 2) // unit == units]
+    if not fits:
+        return f"AW_SEQ_WAIT_FLAG | {units}"
+    return f"AW_SEQ_WAIT_MS({min(fits, key=lambda m: abs(m - ms))})"
+
+
+def _kernel_row(name: str, slots: list[str], loops: list[int], scale: int) -> list[str]:
+    """One table entry in the driver's layout: values start at column 40, lines stay within 100 columns."""
+    def width(t: str) -> int:
+        return len(t.expandtabs(8))
+    head = f"\t{{ {name},"
+    head += "\t" * max(1, (40 - width(head) + 7) // 8)
+    while loops and loops[-1] == 0 and len(loops) > 1:
+        loops = loops[:-1]
+    tail = f"{{ {', '.join(map(str, loops))} }}, {scale} }},"
+    one = f"{head}{{ {', '.join(slots)} }}, {tail}"
+    if width(one) <= 100:
+        return [one]
+    seq = f"{head}{{ {', '.join(slots)} }},"
+    if width(seq) <= 100:
+        return [seq, "\t" * 5 + tail]
+    lines, cur = [], f"{head}{{ {slots[0]},"
+    for v in slots[1:]:
+        nxt = f"{cur} {v},"
+        if width(nxt) > 100:
+            lines.append(cur)
+            cur = "\t" * 5 + f"  {v},"
+        else:
+            cur = nxt
+    cur = cur[:-1] + f" }}, {tail}"
+    return lines + [cur]
+
+
 def export_kernel_table(project: dict, upstream: bool = False) -> str:
     """C table for haptic_hv: struct aw_ff_effect { u16 id; u8 seq[8]; u8 loop[8]; u8 scale; } per enabled
-    effect/primitive. seq: RAM wave index or 0x80 | wait units; loop: register value (plays = loop + 1);
-    scale: percent applied to the requested gain (design scale). The RAM blob it indexes is named by sha256."""
+    effect/primitive, laid out as in drivers/misc/haptic_hv/haptic_hv.c. seq: RAM wave index or a wait;
+    loop: extra plays of a wave; scale: percent of the requested gain. NOOP is added before the primitives
+    (plays nothing). The RAM blob it indexes is named by sha256 in the header."""
     rows, used = [], []
     notes_extra = []
+    noop = False
     for e in _enabled(project):
         seq = effect_sequence(e, project)
         if seq is None:
@@ -95,17 +134,19 @@ def export_kernel_table(project: dict, upstream: bool = False) -> str:
         regs = seq_registers(seq, project)
         n = regs["count"]
         used += [sl["wave"] for sl in seq["slots"] if sl.get("kind") == "wave"]
-        slots = ", ".join(f"0x80 | {v & 0x7f}" if v & 0x80 else str(v) for v in regs["wavcfg"][:n])
-        loops = ", ".join(str(v) for v in regs["loops"][:n])
+        slots = [_kernel_wait(v & 0x7f, project["device"], sl.get("ms", 0)) if v & 0x80 else str(v)
+                 for v, sl in zip(regs["wavcfg"][:n], seq["slots"])]
+        loops = list(regs["loops"][:n])
         scale = int(round(float(e.get("scale", 1.0)) * 100))
-        if scale > 255:
-            notes_extra.append(f"note: {_c_name(e)} scale {scale}% clamped to 255%")
-            scale = 255
+        if scale > 100:
+            notes_extra.append(f"note: {_c_name(e)} scale {scale}% clamped to 100%")
+            scale = 100
         if regs["mainloop"]:
             notes_extra.append(f"warning: {_c_name(e)} uses MAINLOOP {regs['mainloop']}, which this table cannot express")
-        r = render_effect(e, project, "ram")
-        comment = f"/* {r['kernel_ms']} ms */"
-        rows.append((_c_name(e), slots, loops, scale, comment))
+        if e["kind"] != "effect" and not noop:
+            rows += _kernel_row("AW_FF_PRIMITIVE_NOOP", ["0"], [0], 100)
+            noop = True
+        rows += _kernel_row(_c_name(e), slots, loops, scale)
     notes = _provenance_check(project, sorted(set(used)), upstream) + notes_extra
     order = project.get("ram", {}).get("waves", [])
     out = _header(project, order)
@@ -116,8 +157,7 @@ def export_kernel_table(project: dict, upstream: bool = False) -> str:
         pass
     out += [f"/* {n} */" for n in notes]
     out.append("static const struct aw_ff_effect aw_ff_effects[] = {")
-    for name, slots, loops, scale, comment in rows:
-        out.append(f"\t{{ {name},\t{{ {slots} }},\t{{ {loops} }},\t{scale} }},\t{comment}")
+    out += rows
     out.append("};")
     return "\n".join(out) + "\n"
 

@@ -222,15 +222,19 @@ def export_raw(samples: list[int]) -> bytes
 def export_wav(samples: list[int], fs: int) -> bytes                  # 16-bit mono, value*256
 ```
 
-Kernel table format (RAM route; struct to be finalised with the kernel patch):
+Kernel table format (RAM route), laid out like the table in `drivers/misc/haptic_hv/haptic_hv.c` so the rows can
+replace it verbatim: `{ id, { seq }, { loop }, scale }`, values from column 40, ≤ 100 columns; waits as
+`AW_SEQ_WAIT_MS(ms)` (the designed ms when the driver macro gives the same unit count); trailing zero loops
+dropped; scale in % (≤ 100); `AW_FF_PRIMITIVE_NOOP` (plays nothing) before the first primitive.
 
 ```c
 /* hapkit 0.1.0, project "<name>", sha256 <first 16 hex of canonical project json> */
 /* provenance: click=original, ... */
 static const struct aw_ff_effect aw_ff_effects[] = {
-	{ AW_FF_EFFECT_CLICK,		{ 1 },			{ 0 } },
-	{ AW_FF_EFFECT_DOUBLE_CLICK,	{ 1, 0x80 | 38, 1 },	{ 0, 0, 0 } },
-	{ AW_FF_PRIMITIVE_CLICK,	{ 5, 6 },		{ 2, 0 } },
+	{ AW_FF_EFFECT_CLICK,		{ 9 }, { 0 }, 100 },
+	{ AW_FF_EFFECT_DOUBLE_CLICK,	{ 9, AW_SEQ_WAIT_MS(100), 9 }, { 0 }, 100 },
+	{ AW_FF_PRIMITIVE_NOOP,		{ 0 }, { 0 }, 100 },
+	{ AW_FF_PRIMITIVE_QUICK_FALL,	{ 7, 1 }, { 10, 10 }, 30 },
 };
 ```
 

@@ -249,9 +249,11 @@ class Exports(unittest.TestCase):
 
     def test_kernel_table_compiles(self):
         src = exports.export_kernel_table(self.proj())
-        self.assertIn("0x80 | 4", src)
+        self.assertIn("AW_SEQ_WAIT_MS(", src)
         prelude = ("#include <stdint.h>\nstruct aw_ff_effect { uint16_t id; uint8_t seq[8]; uint8_t loop[8]; uint8_t scale; };\n"
-                   "enum { AW_FF_EFFECT_CLICK, AW_FF_PRIMITIVE_QUICK_RISE };\n")
+                   "#define AW_SEQ_WAIT_FLAG 0x80\n"
+                   "#define AW_SEQ_WAIT_MS(ms) (AW_SEQ_WAIT_FLAG | (((ms) * 24 + 32) / 64))\n"
+                   "enum { AW_FF_EFFECT_CLICK, AW_FF_PRIMITIVE_NOOP, AW_FF_PRIMITIVE_QUICK_RISE };\n")
         self.compile_c(src + "const void *keep = aw_ff_effects;\n", prelude)
 
     def test_effect_stream_compiles(self):

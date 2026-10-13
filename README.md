@@ -4,9 +4,13 @@ This is a tool to design, simulate and test haptic waveforms on the Fairphone 6,
 Measurement of the FP6 LRA response and Q works well enough via the microphone that the external accelerometer measurement was ommitted in this repo. The measurements are used to predict and generate braking waveforms.  
 The tool shows reference waveforms, mostly to get a better idea of what the often vague haptic effect descriptions are supposed to be. Waveforms from the pixel 3 and pixel 9 were used, but they are not included here due to the unclear license.
 
+If you are interested in live testing:  
+There are surprise absolute paths in various scripts, which will need to be changed.  
+My test device gets wiped regularly, so install/test scripts weren't made with proper cleanup in mind.
+
 ### SLOP WARNING
 
-This repo is almost entirely LLM generated code, use at your own risk.
+This repo is almost entirely LLM generated, use at your own risk.
 
 ---
 
@@ -64,8 +68,8 @@ Only `214d028e` (verified via `ro.serialno`; the daily driver serial is refused)
 | restore | original firmware path, slot loops and MAINLOOP cleared, stock RAM reloaded, original SELinux mode |
 
 **Persistent install (dev device, userdebug):** `tools/devinstall.sh [project]` exports `haptic_ram.bin` and the
-kernel effect table, builds `haptic.ko` from a kernel tree with the TEST ONLY primitives patch (`KWT`), puts both
-into the `adb remount` overlay and adds an init hook that swaps the module in `post-fs-data`, before the vibrator
+kernel effect table, builds `haptic.ko` from a copy of the `haptic_hv` driver with the primitives series (`KWT`)
+with its `aw_ff_effects` table replaced by the project's, puts both into the `adb remount` overlay and adds an init hook that swaps the module in `post-fs-data`, before the vibrator
 HAL starts. The framework then uses the project for all effects and the 8 primitives (`CAP_COMPOSE_EFFECTS` via
 `/sys/class/qcom-haptics/primitive_duration`). `tools/devinstall.sh --remove` goes back to stock.
 
