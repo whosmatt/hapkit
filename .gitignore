@@ -1,0 +1,12 @@
+# vendor material (Awinic/Fairphone/Google) stays local
+ref/vendor/
+__pycache__/
+*.pyc
+/work/
+out/
+.tools/
+# projects: only the FP6 design is published; others regenerate with tools/mkproject.py
+projects/*.hapkit.json
+!projects/fp6.hapkit.json
+# proprietary references (e.g. Pixel wavetables) are saved next to a project, never committed
+*.local.json

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hapkit</title>
+<link rel="stylesheet" href="/web/css/app.css">
+</head>
+<body>
+<header id="top">
+  <span class="brand">hapkit</span>
+  <input id="projName" class="w-name" title="project name" spellcheck="false">
+  <span id="projPath" class="muted"></span>
+  <span id="dirty" class="dirty" hidden>●</span>
+  <span class="sep"></span>
+  <select id="projMenu" title="project">
+    <option value="">project ▾</option>
+    <option value="new:empty">new · empty</option>
+    <option value="new:stock">new · stock</option>
+    <option value="open">open…</option>
+    <option value="save">save</option>
+    <option value="saveas">save as…</option>
+  </select>
+  <select id="importMenu" title="import">
+    <option value="">import ▾</option>
+    <option value="ram_bin">haptic_ram.bin</option>
+    <option value="wav">wav</option>
+    <option value="raw">raw pcm</option>
+    <option value="carray">C int8 arrays</option>
+    <option value="csv">accelerometer csv</option>
+    <option value="cirrus">cirrus wavetable (.bin)</option>
+  </select>
+  <select id="exportMenu" title="export">
+    <option value="">export ▾</option>
+    <option value="ram_bin">haptic_ram.bin</option>
+    <option value="kernel_table">kernel table (.c)</option>
+    <option value="effect_stream_c">effect stream (.cpp)</option>
+    <option value="wav">selection · wav</option>
+    <option value="raw">selection · raw int8</option>
+    <option value="project">project json</option>
+  </select>
+  <label class="chk" title="refuse non-original waves"><input type="checkbox" id="upstream">upstream</label>
+  <button id="undo" title="Ctrl+Z">↶</button><button id="redo" title="Ctrl+Shift+Z">↷</button>
+  <span class="sep"></span>
+  <label>fs <input id="dev_fs" class="num w5" type="number"></label>
+  <label>f0 <input id="dev_f0" class="num w5" type="number" step="0.1"></label>
+  <label>Qd <input id="dev_q_drive" class="num w4" type="number" step="0.5"></label>
+  <label>Qf <input id="dev_q_free" class="num w4" type="number" step="0.5"></label>
+  <span class="grow"></span>
+  <span id="devPill" class="pill off" title="device">no device</span>
+</header>
+
+<aside id="lib"></aside>
+
+<main id="center">
+  <div class="plotbox" id="wavBox"><canvas id="wavCanvas"></canvas><div class="readout" id="readout"></div></div>
+  <div class="plotbox" id="specBox"><canvas id="specCanvas"></canvas></div>
+  <div id="metrics"></div>
+  <div class="plotbox" id="sgBox"><canvas id="sgCanvas"></canvas></div>
+  <div id="sidePanel"></div>
+  <div id="viewbar">
+    <label class="chk"><input type="checkbox" id="v_sim" checked>sim</label>
+    <label class="chk"><input type="checkbox" id="v_env" checked>env</label>
+    <label class="chk"><input type="checkbox" id="v_rob">±5% f0</label>
+    <label>tail <input id="v_tail" class="num w4" type="number" value="60">ms</label>
+    <span class="sep"></span>
+    <label>win <select id="v_win"><option>128</option><option selected>256</option><option>512</option><option>1024</option></select></label>
+    <label>fmax <input id="v_fmax" class="num w4" type="number" value="800">Hz</label>
+    <label>range <input id="v_db" class="num w3" type="number" value="40">dB</label>
+    <span class="sep"></span>
+    <span class="muted">overlay</span>
+    <select id="ov_ref"></select>
+    <label>Δt <input id="ov_off" class="num w4" type="number" value="0" step="0.5">ms</label>
+    <label>×<input id="ov_gain" class="num w3" type="number" value="1" step="0.1"></label>
+    <select id="ov_mode"><option value="none">as is</option><option value="timescale">timescale</option><option value="envelope">envelope</option></select>
+    <label>f_ref <input id="ov_fref" class="num w4" type="number" value="0" step="1">Hz</label>
+  </div>
+</main>
+
+<aside id="insp">
+  <div id="inspBody"></div>
+  <section id="devPanel">
+    <h3>device</h3>
+    <div class="row">
+      <button id="d_connect">connect</button>
+      <button id="d_upload" title="upload project RAM image">upload RAM</button>
+      <button id="d_stock" title="reload stock RAM">stock RAM</button>
+      <button id="d_restore">restore</button>
+    </div>
+    <div class="row">
+      <select id="d_route" title="route"><option value="ram">ram</option><option value="rtp">rtp</option><option value="hal">hal</option></select>
+      <label>gain <input id="d_gain" type="range" min="0" max="128" value="128"></label>
+      <span id="d_gain_v" class="num">128</span>
+      <button id="d_play" class="primary" title="Space / middle click">▶</button>
+      <button id="d_stop" title="Esc">■</button>
+    </div>
+    <div id="d_status" class="muted small"></div>
+  </section>
+</aside>
+
+<footer id="log"></footer>
+
+<div id="modal" hidden><div class="dlg"><div id="modalBody"></div><div class="row end"><button id="modalCancel">cancel</button><button id="modalOk" class="primary">ok</button></div></div></div>
+<input type="file" id="fileInput" hidden>
+<script type="module" src="/web/js/app.js"></script>
+</body>
+</html>
