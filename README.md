@@ -8,6 +8,10 @@ If you are interested in live testing:
 There are surprise absolute paths in various scripts, which will need to be changed.  
 My test device gets wiped regularly, so install/test scripts weren't made with proper cleanup in mind.
 
+## Why not other haptics design tools
+
+The aiwinic IC provides a fairly specific set of features (sequencer, RAM-table), so there's no easy way to convert the output of a generic tool for any reasonably long waveform.
+
 ### SLOP WARNING
 
 This repo is almost entirely LLM generated, use at your own risk.
